@@ -2,6 +2,7 @@ require('dotenv').config()
 const axios = require('axios');
 const JWT = require('jsonwebtoken');
 const mongoose = require('mongoose');
+const fs = require('fs')
 
 exports.login = async (req, res, next) => {
     const {username, password} = req.body
@@ -20,18 +21,22 @@ exports.login = async (req, res, next) => {
     if(!res.finished){
         await local_auth(AuthJSON)
             .then(result => {
-                const _JWT = JWT.sign({token: result, isAdmin: true}, process.env.JWT_TOKEN, {expiresIn: "365 days"});
-                res.setHeader('adminToken', _JWT)
-                res.status(200).json({token: _JWT});
-                next()
+                if(result){
+                    const _JWT = JWT.sign({token: result, isAdmin: true}, process.env.JWT_TOKEN, {expiresIn: "365 days"});
+                    res.setHeader('adminToken', _JWT)
+                    res.status(200).json({token: _JWT});
+                    next()
+                }
             })
             .catch(error => {
                 console.log(error)
             })
     }
 
-    if(!res.finished)
+    if(!res.finished){
         res.status(400).json({error: 'Bad username or password'});
+        addLogRaw()
+    }
 }
 
 exports.getAll = (req, res, next) => {
@@ -63,6 +68,16 @@ function local_auth(jsonAuth){
                 reject(err)
             if(doc)
                 resolve(doc._id)
+            else
+                resolve(null)
         })
     })
+}
+
+function addLogRaw(){
+    try {
+        fs.appendFileSync('./auth_log.txt', new Date().toLocaleString('fr-FR')+' : Tentative de connexion invalide\n', "utf8");
+      } catch (e) {
+        console.error(e);
+      }
 }
